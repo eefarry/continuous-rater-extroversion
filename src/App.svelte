@@ -16,7 +16,7 @@
     import Loading from './components/Loading.svelte';
     import Header from './components/Header.svelte';
     import ProlificPreview from './pages/ProlificPreview.svelte';
-    import IdInput from './pages/IdInput.svelte'; // 💡 NEW: Manual ID input
+    import IdInput from './pages/IdInput.svelte';
 
     // path details
     const ratingsPath = `${experiment}/ratings`;
@@ -159,7 +159,6 @@
 
         } catch (error) {
             console.error("Experiment Initialization Failed:", error);
-            // On failure, stay in loading or show an error screen
             currentState = undefined; 
         }
     };
@@ -169,15 +168,14 @@
     // INITIAL ROUTING AND MOUNT
     // *****************************
 
-    // Set to loading by default
     currentState = undefined;
 
     onMount(async () => {
-        if (params.participantId) {
+        if (params.participantId && typeof params.participantId === 'string' && params.participantId.trim() !== '') {
             // Prolific user (ID in URL): Start initialization immediately
             await initializeExperiment(params.participantId);
         } else {
-            // Manual user: Prompt for ID
+            // Manual user or missing Prolific ID: Prompt for ID
             currentState = 'id-input'; 
         }
     });
@@ -187,17 +185,22 @@
     // handler functions
     // *****************************
 
-    // Handler for the manual ID submission
-    const handleIdSubmit = async (id) => {
+    // 💡 FIX APPLIED HERE: The handler must accept the event object and extract the ID from 'detail'.
+    const handleIdSubmit = async (event) => {
+        const id = event.detail; // Extract ID from the event payload
+        
+        if (!id || typeof id !== 'string' || id.trim() === '') {
+            console.error("Attempted to submit an invalid or empty Participant ID.");
+            return; 
+        }
+
         currentState = undefined; // Go to loading while we initialize
-        await initializeExperiment(id);
-        // initializeExperiment handles the state transition to 'consent' on success
+        await initializeExperiment(id.trim()); 
     }
 
     const updateState = async (newState) => {
         currentState = newState;
         try {
-            // FIX: Use .set with merge: true for robustness
             await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set({ currentState }, { merge: true });
             console.log('updated user state');
         } catch (error) {
@@ -205,7 +208,6 @@
         }
     };
 
-    // FIX: All consent/bot functions must use .set({ merge: true }) for robustness
     const failedBot = async () => {
         try {
             await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set({ botStatus: "bot" }, { merge: true });
