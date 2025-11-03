@@ -1,40 +1,40 @@
-<!-- FULL APP.SVELTE WITH LOOPING TASK FOR PROLIFIC -->
-
 <script>
     import { db, auth, serverTime, params, ratingTypes, ratingDefs, dev,
             experiment, userGroup, labName, email} from './utils.js';
     
     import { onMount } from 'svelte';
-	import Intro from './pages/Intro.svelte';
-	import Botcheck from './pages/Botcheck.svelte';
-	import Consent from './pages/Consent.svelte';
-	import Instructions1 from './pages/Instructions1.svelte';
-	import Instructions2 from './pages/Instructions2.svelte';
+    import Intro from './pages/Intro.svelte';
+    import Botcheck from './pages/Botcheck.svelte';
+    import Consent from './pages/Consent.svelte';
+    import Instructions1 from './pages/Instructions1.svelte';
+    import Instructions2 from './pages/Instructions2.svelte';
     import Instructions3 from './pages/Instructions3.svelte';
     import Demo from './pages/Demo.svelte';
-	import Task from './pages/Task.svelte';
-	import Debrief from './pages/Debrief.svelte';
+    import Task from './pages/Task.svelte';
+    import Debrief from './pages/Debrief.svelte';
     import Complete from './pages/Complete.svelte';
     import Loading from './components/Loading.svelte';
     import Header from './components/Header.svelte';
-	import ProlificPreview from './pages/ProlificPreview.svelte';
+    import ProlificPreview from './pages/ProlificPreview.svelte';
+    // 💡 NEW: Import the ID input component
+    import IdInput from './pages/IdInput.svelte'; 
 
-	// path details
-	const ratingsPath = `${experiment}/ratings`;
-	const ratingsDoc = db.doc(ratingsPath);
-	const subjectGroupPath = `${experiment}/subjects/${userGroup}`;
+    // path details
+    const ratingsPath = `${experiment}/ratings`;
+    const ratingsDoc = db.doc(ratingsPath);
+    const subjectGroupPath = `${experiment}/subjects/${userGroup}`;
     const subjectGroupCollection = db.collection(subjectGroupPath);
-	const stimuliPath = `${experiment}/stimuli`;
-	const stimuliDoc = db.doc(stimuliPath);
+    const stimuliPath = `${experiment}/stimuli`;
+    const stimuliDoc = db.doc(stimuliPath);
 
-	// declare and set other necessary variables
-	let currVid;
-	let currVidSrc;
-	let currRating;
+    // declare and set other necessary variables
+    let currVid;
+    let currVidSrc;
+    let currRating;
     let currDef;
-	let subjectPath;
-	let ratingDocPathway;
-	let currentState;
+    let subjectPath;
+    let ratingDocPathway;
+    let currentState;
     let consentStatus;
     let alreadyWatched = [];
     let moviesRemaining = [];
@@ -42,9 +42,9 @@
     let time = 0;
     let initExperiment = false;
     
-	console.log(dev);
+    console.log(dev);
 
-	const resetTestWorker = async () => {
+    const resetTestWorker = async () => {
         if (params.workerId === 'test-worker') {
             currentState = 'consent';
             let subjectRef = subjectGroupCollection.doc(params.workerId);
@@ -72,19 +72,23 @@
     };
 
     // *****************************
-	// main function
+    // main function
     // *****************************
 
-    // For Prolific, we assume participants arrive with 'participantId' via URL params
-	if (params.participantId) {
+    // 💡 CHANGED: Logic to handle participant ID
+    if (params.participantId) {
+        // Participant ID found in URL (e.g., from Prolific)
         initExperiment = true;
     } else {
-        currentState = 'prolific-preview';
+        // No participant ID found. Start with the ID input screen.
+        currentState = 'id-input'; 
     }
 
     onMount(async () => {
         if (initExperiment) {
             try {
+                // 💡 NOTE: The rest of the logic still relies on params.participantId
+                // which is why the handleIdSubmit function is crucial below.
                 auth.onAuthStateChanged(async (user) => {
                     if (!user) {
                         try {
@@ -170,55 +174,64 @@
         }
     });
 
-	// *****************************
-	// handler functions
-	// *****************************
+    // *****************************
+    // handler functions
+    // *****************************
 
-  	const updateState = async (newState) => {
-		currentState = newState;
-		try {
-			await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ currentState });
-			console.log('updated user state');
-		} catch (error) {
-			console.error(error);
-		}
-	};
+    // 💡 NEW: Handler for the manual ID submission
+    const handleIdSubmit = (id) => {
+        // Overwrite the params.participantId so the rest of the existing
+        // app logic (like the onMount block) can use it seamlessly.
+        params.participantId = id;
+        initExperiment = true; // Flag to run the onMount logic
+        updateState('consent'); // Move to the first main page
+    }
 
-	const failedBot = async () => {
-		try {
-			await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ botStatus: "bot" });
-			console.log('user identified as bot');
-		} catch (error) {
-			console.error(error);
-		}
-	};
+    const updateState = async (newState) => {
+        currentState = newState;
+        try {
+            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ currentState });
+            console.log('updated user state');
+        } catch (error) {
+            console.error(error);
+        }
+    };
 
-	const failedConsent = async () => {
-		try {
-			await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ consentStatus: 'failed' });
-			console.log('user rejected consent');
-		} catch (error) {
-			console.error(error);
-		}
-	};
+    const failedBot = async () => {
+        try {
+            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ botStatus: "bot" });
+            console.log('user identified as bot');
+        } catch (error) {
+            console.error(error);
+        }
+    };
 
-	const agreedConsent = async () => {
-		try {
-			await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ consentStatus: 'signed' });
-			updateState('botcheck-instruct');
-			console.log('user accepted consent');
-		} catch (error) {
-			console.error(error);
-		}
-	};
+    const failedConsent = async () => {
+        try {
+            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ consentStatus: 'failed' });
+            console.log('user rejected consent');
+        } catch (error) {
+            console.error(error);
+        }
+    };
 
-	function removeItemOnce(arr, value) {
-  		var index = arr.indexOf(value);
-  		if (index > -1) {
-    		arr.splice(index, 1);
-  		}
-  		return arr;
-	};
+    const agreedConsent = async () => {
+        try {
+            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ consentStatus: 'signed' });
+            updateState('botcheck-instruct');
+            console.log('user accepted consent');
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    function removeItemOnce(arr, value) {
+        var index = arr.indexOf(value);
+        if (index > -1) {
+            arr.splice(index, 1);
+        }
+        return arr;
+    };
 </script>
 
 <style>
@@ -231,43 +244,45 @@
         <Header on:resetTestWorker={resetTestWorker}></Header>
     </div>
 
-	{#if !currentState}
+    {#if !currentState}
         <Loading>Loading...</Loading>
+    {:else if currentState === 'id-input'}
+        <IdInput on:finished={handleIdSubmit} />
     {:else if currentState === 'prolific-preview'}
         <ProlificPreview />
-	{:else if currentState === 'intro'}
-		<Intro on:finished={() => updateState('consent')}></Intro>
-	{:else if currentState === 'consent'}
-		<Consent on:finished={() => agreedConsent()} on:returned={() => failedConsent()}></Consent>
-	{:else if currentState === 'botcheck-instruct'}
-		<Botcheck on:finished={() => updateState('instructions1')} on:failed={() => failedBot()}></Botcheck>
-	{:else if currentState === 'botcheck-task'}
-		<Botcheck on:finished={() => updateState('task')} on:failed={() => failedBot()}></Botcheck>
-	{:else if currentState === 'instructions1'}
-		<Instructions1 ratingType={currRating} defType={currDef} numOptions={numOptions} on:finished={() => updateState('demo')} />
-	{:else if currentState === 'demo'}
-		<Demo time={time} ratingType={currRating} on:back={() => updateState('instructions1')} on:finished={() => updateState('instructions2')} />
-	{:else if currentState === 'instructions2'}
-		<Instructions2 on:back={() => updateState('demo')} on:finished={() => updateState('instructions3')} />
+    {:else if currentState === 'intro'}
+        <Intro on:finished={() => updateState('consent')}></Intro>
+    {:else if currentState === 'consent'}
+        <Consent on:finished={() => agreedConsent()} on:returned={() => failedConsent()}></Consent>
+    {:else if currentState === 'botcheck-instruct'}
+        <Botcheck on:finished={() => updateState('instructions1')} on:failed={() => failedBot()}></Botcheck>
+    {:else if currentState === 'botcheck-task'}
+        <Botcheck on:finished={() => updateState('task')} on:failed={() => failedBot()}></Botcheck>
+    {:else if currentState === 'instructions1'}
+        <Instructions1 ratingType={currRating} defType={currDef} numOptions={numOptions} on:finished={() => updateState('demo')} />
+    {:else if currentState === 'demo'}
+        <Demo time={time} ratingType={currRating} on:back={() => updateState('instructions1')} on:finished={() => updateState('instructions2')} />
+    {:else if currentState === 'instructions2'}
+        <Instructions2 on:back={() => updateState('demo')} on:finished={() => updateState('instructions3')} />
     {:else if currentState === 'instructions3'}
     <Instructions3 ratingType={currRating} defType={currDef} on:back={() => updateState('instructions2')} on:finished={() => updateState('task')} />
-	{:else if currentState === 'task'}
-		<Task 
-			stimuliPath={`${experiment}/stimuli`}
-			pathway={`${experiment}/ratings/${params.participantId}`}
-			ratingType={currRating}
-			ratingDef={currDef}
-			time={time}
-			on:finished={() => updateState("debrief")}
-		/>
-	{:else if currentState === 'debrief'}
-		<Debrief
-			subPath={subjectPath}
-			email={email}
-			labName={labName}
-			numOptions={numOptions}
-		/>
-	{:else if currentState === 'complete'}
-		<Complete />
-	{/if}  	 
+    {:else if currentState === 'task'}
+        <Task 
+            stimuliPath={`${experiment}/stimuli`}
+            pathway={`${experiment}/ratings/${params.participantId}`}
+            ratingType={currRating}
+            ratingDef={currDef}
+            time={time}
+            on:finished={() => updateState("debrief")}
+        />
+    {:else if currentState === 'debrief'}
+        <Debrief
+            subPath={subjectPath}
+            email={email}
+            labName={labName}
+            numOptions={numOptions}
+        />
+    {:else if currentState === 'complete'}
+        <Complete />
+    {/if}    
 </div>
