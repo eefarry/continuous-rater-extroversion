@@ -197,31 +197,43 @@
         }
     };
 
-    const failedBot = async () => {
+        const agreedConsent = async () => {
         try {
-            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ botStatus: "bot" });
-            console.log('user identified as bot');
+            // FIX: Use .set with { merge: true } for robustness
+            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set(
+                { consentStatus: 'signed' },
+                { merge: true } // This flag is the key
+            );
+            updateState('botcheck-instruct');
+            console.log('user accepted consent');
         } catch (error) {
-            console.error(error);
+            console.error("Error in agreedConsent:", error);
         }
     };
 
     const failedConsent = async () => {
         try {
-            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ consentStatus: 'failed' });
+            // FIX: Use .set with { merge: true }
+            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set(
+                { consentStatus: 'failed' },
+                { merge: true }
+            );
             console.log('user rejected consent');
         } catch (error) {
-            console.error(error);
+            console.error("Error in failedConsent:", error);
         }
     };
 
-    const agreedConsent = async () => {
+    const failedBot = async () => {
         try {
-            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ consentStatus: 'signed' });
-            updateState('botcheck-instruct');
-            console.log('user accepted consent');
+            // FIX: Use .set with { merge: true }
+            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set(
+                { botStatus: "bot" },
+                { merge: true }
+            );
+            console.log('user identified as bot');
         } catch (error) {
-            console.error(error);
+            console.error("Error in failedBot:", error);
         }
     };
 
