@@ -16,7 +16,7 @@
     import Loading from './components/Loading.svelte';
     import Header from './components/Header.svelte';
     import ProlificPreview from './pages/ProlificPreview.svelte';
-    import IdInput from './pages/IdInput.svelte';
+    import IdInput from './pages/IdInput.svelte'; // 💡 NEW: Manual ID input
 
     // path details
     const ratingsPath = `${experiment}/ratings`;
@@ -69,9 +69,9 @@
         }
     };
 
-    // *****************************
-    // CORE INITIALIZATION FUNCTION (Guarantees Order)
-    // *****************************
+    // *****************************************************************
+    // CORE INITIALIZATION FUNCTION (Guarantees Authentication and Order)
+    // *****************************************************************
 
     const initializeExperiment = async (participantId) => {
         try {
@@ -79,42 +79,34 @@
             params.participantId = participantId;
             
             // 1. Firebase Authentication: Sign in or create the user
-            let user = auth.currentUser;
-            if (!user || user.email !== `${participantId}@experiment.com`) {
-                 try {
-                    await auth.signInWithEmailAndPassword(
-                        `${participantId}@experiment.com`,
-                        participantId
-                    );
-                    console.log('User found...signing in with credentials');
-                } catch (error) {
-                    if (error.code === 'auth/user-not-found') {
-                        console.log('No user found...creating new credentials');
-                        await auth.createUserWithEmailAndPassword(
-                            `${participantId}@experiment.com`,
-                            participantId
-                        );
-                    } else {
-                        console.error("Authentication Error:", error);
-                        // Stop and show a loading state if authentication fails
-                        currentState = undefined; 
-                        return; 
-                    }
+            const email = `${participantId}@experiment.com`;
+            let userCredential;
+            
+            try {
+                // Attempt Sign In
+                userCredential = await auth.signInWithEmailAndPassword(email, participantId);
+                console.log('User found...signing in with credentials');
+            } catch (error) {
+                if (error.code === 'auth/user-not-found') {
+                    // If user not found, create the user
+                    console.log('No user found...creating new credentials');
+                    userCredential = await auth.createUserWithEmailAndPassword(email, participantId);
+                } else {
+                    console.error("Authentication Error:", error);
+                    currentState = undefined; 
+                    return; 
                 }
             }
             
-            // 2. Wait for auth state change to get the user object
-            // This is safer than relying on auth.currentUser immediately after sign-in/creation
-            user = await new Promise((resolve) => {
-                const unsubscribe = auth.onAuthStateChanged((u) => {
-                    if (u) {
-                        unsubscribe();
-                        resolve(u);
-                    }
-                });
-            });
+            let user = userCredential.user;
 
-            // 3. User Document Setup (Guaranteed to run AFTER auth)
+            if (!user) {
+                 console.error("Critical: User object is null after authentication.");
+                 currentState = undefined;
+                 return;
+            }
+
+            // 2. User Document Setup (Guaranteed to run AFTER auth)
             let subjectRef = subjectGroupCollection.doc(participantId);
             subjectPath = `${subjectGroupPath}/${participantId}`;
             let doc = await subjectRef.get();
@@ -134,7 +126,7 @@
                 console.log('Loading previous subject document.');
             }
 
-            // 4. Stimuli and Rating Setup (Runs AFTER user doc exists)
+            // 3. Stimuli and Rating Setup (Runs AFTER user doc exists)
             let stimuliTable = await stimuliDoc.get();
             for (var field in stimuliTable.data()) {
                 moviesRemaining.push(field);
@@ -158,7 +150,7 @@
                 ratingDocPathway = `${ratingsPath}/${participantId}/${vidPlusRating}`;
                 currVidSrc = stimuliTable.data()[currVid];
                 
-                // 5. FINAL STEP: Transition state ONLY after setup is done
+                // 4. FINAL STEP: Transition state ONLY after setup is done
                 updateState('consent');
             } else {
                 console.log("No options left! Skipping consent.");
@@ -167,7 +159,7 @@
 
         } catch (error) {
             console.error("Experiment Initialization Failed:", error);
-            // On failure, set a definite error or loading state
+            // On failure, stay in loading or show an error screen
             currentState = undefined; 
         }
     };
@@ -177,7 +169,7 @@
     // INITIAL ROUTING AND MOUNT
     // *****************************
 
-    // 💡 NEW INITIAL STATE: Set to loading by default
+    // Set to loading by default
     currentState = undefined;
 
     onMount(async () => {
@@ -195,7 +187,7 @@
     // handler functions
     // *****************************
 
-    // 💡 NEW: Handler for the manual ID submission
+    // Handler for the manual ID submission
     const handleIdSubmit = async (id) => {
         currentState = undefined; // Go to loading while we initialize
         await initializeExperiment(id);
@@ -205,8 +197,7 @@
     const updateState = async (newState) => {
         currentState = newState;
         try {
-            // FIX: Ensure this uses .set with merge: true to avoid crashes 
-            // if initializeExperiment didn't complete all its writes (e.g., if re-entering the app)
+            // FIX: Use .set with merge: true for robustness
             await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set({ currentState }, { merge: true });
             console.log('updated user state');
         } catch (error) {
@@ -251,6 +242,8 @@
         return arr;
     };
 </script>
+
+---
 
 <style>
     .content { position: relative; }
