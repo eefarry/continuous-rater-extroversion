@@ -1,3 +1,9 @@
+// utils.js
+export const params = {
+    PROLIFIC_PID: new URLSearchParams(window.location.search).get('PROLIFIC_PID') || 'test-prolific',
+    STUDY_ID: new URLSearchParams(window.location.search).get('STUDY_ID') || 'test-study',
+    SESSION_ID: new URLSearchParams(window.location.search).get('SESSION_ID') || 'test-session'
+};
 
 // ************************************************
 // THIS PAGE REQUIRES EXPERIMENTER INPUT
