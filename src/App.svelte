@@ -16,8 +16,7 @@
     import Loading from './components/Loading.svelte';
     import Header from './components/Header.svelte';
     import ProlificPreview from './pages/ProlificPreview.svelte';
-    // 💡 NEW: Import the ID input component
-    import IdInput from './pages/IdInput.svelte'; 
+    import IdInput from './pages/IdInput.svelte';
 
     // path details
     const ratingsPath = `${experiment}/ratings`;
@@ -40,7 +39,6 @@
     let moviesRemaining = [];
     let numOptions;
     let time = 0;
-    let initExperiment = false;
     
     console.log(dev);
 
@@ -72,168 +70,176 @@
     };
 
     // *****************************
-    // main function
+    // CORE INITIALIZATION FUNCTION (Guarantees Order)
     // *****************************
 
-    // 💡 CHANGED: Logic to handle participant ID
-    if (params.participantId) {
-        // Participant ID found in URL (e.g., from Prolific)
-        initExperiment = true;
-    } else {
-        // No participant ID found. Start with the ID input screen.
-        currentState = 'id-input'; 
-    }
-
-    onMount(async () => {
-        if (initExperiment) {
-            try {
-                // 💡 NOTE: The rest of the logic still relies on params.participantId
-                // which is why the handleIdSubmit function is crucial below.
-                auth.onAuthStateChanged(async (user) => {
-                    if (!user) {
-                        try {
-                            await auth.signInWithEmailAndPassword(
-                                `${params.participantId}@experiment.com`,
-                                params.participantId
-                            );
-                            console.log('user found...signing in with credentials');
-                        } catch (error) {
-                            if (error.code === 'auth/user-not-found') {
-                                console.log('no user found...creating new credentials');
-                                await auth.createUserWithEmailAndPassword(
-                                    `${params.participantId}@experiment.com`,
-                                    params.participantId
-                                );
-                            } else {
-                                console.error(error);
-                            }
-                        }
+    const initializeExperiment = async (participantId) => {
+        try {
+            // Ensure params.participantId is set for the rest of the app to use
+            params.participantId = participantId;
+            
+            // 1. Firebase Authentication: Sign in or create the user
+            let user = auth.currentUser;
+            if (!user || user.email !== `${participantId}@experiment.com`) {
+                 try {
+                    await auth.signInWithEmailAndPassword(
+                        `${participantId}@experiment.com`,
+                        participantId
+                    );
+                    console.log('User found...signing in with credentials');
+                } catch (error) {
+                    if (error.code === 'auth/user-not-found') {
+                        console.log('No user found...creating new credentials');
+                        await auth.createUserWithEmailAndPassword(
+                            `${participantId}@experiment.com`,
+                            participantId
+                        );
                     } else {
-                        console.log('user authenticated...');
-                        let currUser = auth.currentUser;
-                        try {
-                            let subjectRef = subjectGroupCollection.doc(params.participantId);
-                            subjectPath = `${subjectGroupPath}/${params.participantId}`;
-                            subjectRef.get().then(function(doc) {
-                                if (doc.exists) {
-                                    console.log('previous document found...loading state...');
-                                    subjectRef.update({ mostRecentTime: serverTime });
-                                } else {
-                                    subjectGroupCollection.doc(params.participantId).set({name: 'unknown'});
-                                    console.log('no previous documents found...creating new...');
-                                    subjectPath = `${subjectGroupPath}/${params.participantId}`;
-                                    subjectRef.set({
-                                        participantId: params.participantId,
-                                        userId: currUser.uid,
-                                        startTime: serverTime,
-                                        consentStatus: 'incomplete'
-                                    });
-                                }
-
-                                // Grab stimuli doc and prepare movie list
-                                stimuliDoc.get().then(function(stimuliTable) {
-                                    for (var field in stimuliTable.data()) {
-                                        moviesRemaining.push(field);
-                                    }
-
-                                    let currPath = `${ratingsPath}/${params.participantId}`;
-                                    db.collection(currPath).get().then(function(ratingList) {
-                                        ratingList.forEach(function(doc) {
-                                            moviesRemaining = removeItemOnce(moviesRemaining, doc.id.split("-")[0]);
-                                        });
-                                        numOptions = moviesRemaining.length;
-                                        console.log('moviesRemaining: ', moviesRemaining);
-
-                                        if (numOptions > 0) {
-                                            // choose random starting video and rating type
-                                            let movieIndex = Math.floor(Math.random()*moviesRemaining.length);
-                                            let ratingIndex = Math.floor(Math.random()*ratingTypes.length);
-                                            currVid = moviesRemaining[movieIndex];
-                                            currRating = ratingTypes[ratingIndex];
-                                            currDef = ratingDefs[ratingIndex];
-                                            let vidPlusRating = `${currVid}-${currRating}`;
-                                            ratingDocPathway = `${ratingsPath}/${params.participantId}/${vidPlusRating}`;
-                                            currVidSrc = stimuliTable.data()[currVid];
-                                            updateState('consent');
-                                        } else {
-                                            console.log("no options left!");
-                                            updateState('complete');
-                                        }
-                                    });
-                                });
-
-                            });
-                        } catch (error) {
-                            console.error(error);
-                        }
+                        console.error("Authentication Error:", error);
+                        // Stop and show a loading state if authentication fails
+                        currentState = undefined; 
+                        return; 
+                    }
+                }
+            }
+            
+            // 2. Wait for auth state change to get the user object
+            // This is safer than relying on auth.currentUser immediately after sign-in/creation
+            user = await new Promise((resolve) => {
+                const unsubscribe = auth.onAuthStateChanged((u) => {
+                    if (u) {
+                        unsubscribe();
+                        resolve(u);
                     }
                 });
-            } catch (error) {
-                console.error(error);
+            });
+
+            // 3. User Document Setup (Guaranteed to run AFTER auth)
+            let subjectRef = subjectGroupCollection.doc(participantId);
+            subjectPath = `${subjectGroupPath}/${participantId}`;
+            let doc = await subjectRef.get();
+
+            if (!doc.exists) {
+                // Initial document creation
+                await subjectRef.set({
+                    participantId: participantId,
+                    userId: user.uid,
+                    startTime: serverTime,
+                    consentStatus: 'incomplete'
+                });
+                console.log('Created new subject document.');
+            } else {
+                // Returning user
+                await subjectRef.update({ mostRecentTime: serverTime });
+                console.log('Loading previous subject document.');
             }
+
+            // 4. Stimuli and Rating Setup (Runs AFTER user doc exists)
+            let stimuliTable = await stimuliDoc.get();
+            for (var field in stimuliTable.data()) {
+                moviesRemaining.push(field);
+            }
+
+            let currPath = `${ratingsPath}/${participantId}`;
+            let ratingList = await db.collection(currPath).get();
+            ratingList.forEach(function(doc) {
+                moviesRemaining = removeItemOnce(moviesRemaining, doc.id.split("-")[0]);
+            });
+            numOptions = moviesRemaining.length;
+
+            if (numOptions > 0) {
+                // choose random starting video and rating type
+                let movieIndex = Math.floor(Math.random()*moviesRemaining.length);
+                let ratingIndex = Math.floor(Math.random()*ratingTypes.length);
+                currVid = moviesRemaining[movieIndex];
+                currRating = ratingTypes[ratingIndex];
+                currDef = ratingDefs[ratingIndex];
+                let vidPlusRating = `${currVid}-${currRating}`;
+                ratingDocPathway = `${ratingsPath}/${participantId}/${vidPlusRating}`;
+                currVidSrc = stimuliTable.data()[currVid];
+                
+                // 5. FINAL STEP: Transition state ONLY after setup is done
+                updateState('consent');
+            } else {
+                console.log("No options left! Skipping consent.");
+                updateState('complete');
+            }
+
+        } catch (error) {
+            console.error("Experiment Initialization Failed:", error);
+            // On failure, set a definite error or loading state
+            currentState = undefined; 
+        }
+    };
+
+
+    // *****************************
+    // INITIAL ROUTING AND MOUNT
+    // *****************************
+
+    // 💡 NEW INITIAL STATE: Set to loading by default
+    currentState = undefined;
+
+    onMount(async () => {
+        if (params.participantId) {
+            // Prolific user (ID in URL): Start initialization immediately
+            await initializeExperiment(params.participantId);
+        } else {
+            // Manual user: Prompt for ID
+            currentState = 'id-input'; 
         }
     });
+
 
     // *****************************
     // handler functions
     // *****************************
 
     // 💡 NEW: Handler for the manual ID submission
-    const handleIdSubmit = (id) => {
-        // Overwrite the params.participantId so the rest of the existing
-        // app logic (like the onMount block) can use it seamlessly.
-        params.participantId = id;
-        initExperiment = true; // Flag to run the onMount logic
-        updateState('consent'); // Move to the first main page
+    const handleIdSubmit = async (id) => {
+        currentState = undefined; // Go to loading while we initialize
+        await initializeExperiment(id);
+        // initializeExperiment handles the state transition to 'consent' on success
     }
 
     const updateState = async (newState) => {
         currentState = newState;
         try {
-            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ currentState });
+            // FIX: Ensure this uses .set with merge: true to avoid crashes 
+            // if initializeExperiment didn't complete all its writes (e.g., if re-entering the app)
+            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set({ currentState }, { merge: true });
             console.log('updated user state');
+        } catch (error) {
+            console.error("Error updating state in DB:", error);
+        }
+    };
+
+    // FIX: All consent/bot functions must use .set({ merge: true }) for robustness
+    const failedBot = async () => {
+        try {
+            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set({ botStatus: "bot" }, { merge: true });
+            console.log('user identified as bot');
         } catch (error) {
             console.error(error);
         }
     };
 
-        const agreedConsent = async () => {
+    const failedConsent = async () => {
         try {
-            // FIX: Use .set with { merge: true } for robustness
-            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set(
-                { consentStatus: 'signed' },
-                { merge: true } // This flag is the key
-            );
+            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set({ consentStatus: 'failed' }, { merge: true });
+            console.log('user rejected consent');
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const agreedConsent = async () => {
+        try {
+            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set({ consentStatus: 'signed' }, { merge: true });
             updateState('botcheck-instruct');
             console.log('user accepted consent');
         } catch (error) {
-            console.error("Error in agreedConsent:", error);
-        }
-    };
-
-    const failedConsent = async () => {
-        try {
-            // FIX: Use .set with { merge: true }
-            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set(
-                { consentStatus: 'failed' },
-                { merge: true }
-            );
-            console.log('user rejected consent');
-        } catch (error) {
-            console.error("Error in failedConsent:", error);
-        }
-    };
-
-    const failedBot = async () => {
-        try {
-            // FIX: Use .set with { merge: true }
-            await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set(
-                { botStatus: "bot" },
-                { merge: true }
-            );
-            console.log('user identified as bot');
-        } catch (error) {
-            console.error("Error in failedBot:", error);
+            console.error(error);
         }
     };
 
