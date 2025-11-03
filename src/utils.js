@@ -1,4 +1,8 @@
 // utils.js
+
+// ************************************************
+// PROLIFIC URL PARAMETERS (with test defaults)
+// ************************************************
 export const params = {
     PROLIFIC_PID: new URLSearchParams(window.location.search).get('PROLIFIC_PID') || 'test-prolific',
     STUDY_ID: new URLSearchParams(window.location.search).get('STUDY_ID') || 'test-study',
@@ -28,39 +32,29 @@ import { writable } from 'svelte/store';
 // ************************************************
 
 // lab variables
-export const studyLocation = 'Columbia University'; // location of lab running mturk study
-export const labName = 'Social Cognitive and Neural Sciences lab'; // name of lab running HIT experiment 
-export const email = 'columbia.freemanlab@gmail.com'; // lab email for mturk
-export const studyAim = 'understanding how people form impressions of others'; // aim of mturk study 
-export const studyTasks = 'viewing videos of people telling a story about their life and rating these people continously on a personality trait throughout the videos'; // brief summary of HIT task for consent form
-export const experiment = 'narrative-ratings'; // name of experiment (should match collection name in firebase)
+export const studyLocation = 'Columbia University';
+export const labName = 'Social Cognitive and Neural Sciences lab';
+export const email = 'columbia.freemanlab@gmail.com';
+export const studyAim = 'understanding how people form impressions of others';
+export const studyTasks = 'viewing videos of people telling a story about their life and rating these people continuously on a personality trait throughout the videos';
+export const experiment = 'narrative-ratings';
 
-// HIT variables
-export const HITPay = '5.00'; // pay for HIT completion (format as X.XX with no dollar sign)
-export const userGroup = 'Prolific Group'; // name of collection of participants for current HIT
-export const estHITTime = '30'; // estimated time to complete HIT (in minutes)
-export const totalHITTime = estHITTime * 2; // total time provided for HIT (in minutes)
+// participant variables
+export const userGroup = 'Prolific Group';
+export const estHITTime = '30';
+export const totalHITTime = estHITTime * 2;
 
-// stimuli variables      
-export const ratingTypes = ['Affectionate', 'Gloomy', 'Peaceful', 'Angry', 'Bewildered', 'Judging', 'Contemplating','Attentive', 'Open-minded' , 'Conscientious', 'Extroverted', 'Agreeable', 'Neurotic']; // array of rating types   
+// stimuli variables
+export const ratingTypes = ['Extroverted'] // 'Conscientious', 'Extroverted', 'Agreeable', 'Neurotic']; // array of rating types   
 export const ratingDefs = [
-    'Affectionate def', 
-    'Gloomy def', 
-    'Peaceful def', 
-    'Angry def', 
-    'Bewildered def', 
-    'Judging def ', 
-    'Contemplating def',
-    'Attentive def', 
-    'Open-minded def' , 
-    'Conscientious def', 
-    'Extroverted def', 
-    'Agreeable def', 
-    'Neurotic def']; // array of rating types definitions  
+`reflects sociability, assertiveness, and positive emotionality.
 
-// this configures path to proper firebase
-// COPY AND PASTE YOUR FIREBASE CONFIG HERE
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+<u>High Extroversion:</u> affectionate, talkative, active, fun-loving, passionate, enthusiastic and expressive in groups.
+
+<u>Low Extroversion:</u> reserved, quiet, passive, prefers solitude or small groups, less expressive.`
+];
+
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyDRCgMCZ6-86XocHOPLHW6wBRjIOyoORaM",
   authDomain: "narrative-ratings-a2b79.firebaseapp.com",
@@ -81,45 +75,25 @@ const firebaseConfig = {
 // ************************************************
 // ************************************************
 
-// dev is referenced as a store elsewhere in the code, so cannot be a simple Boolean
-// eslint-disable-next-line no-undef
+// dev store
 export const dev = DEV_MODE ? writable(true) : writable(false);
 
-// firebase info (export for use elsewhere in app)
+// Firebase exports
 firebase.initializeApp(firebaseConfig);
 export const db = firebase.firestore();
 export const auth = firebase.auth();
 export const serverTime = firebase.firestore.Timestamp.now();
 
-// Functions to parse the URL to get workerID, hitID, and assignmentID
+// Helper to parse any URL params (fallback)
 const unescapeURL = (s) => decodeURIComponent(s.replace(/\+/g, '%20'));
 export const getURLParams = () => {
-    const params = {};
-    let url = window.location.href;
-    let m = window.location.href.match(/[\\?&]([^=]+)=([^&#]*)/g);
-    
-    if (m) {
-        let i = 0;
-        while (i < m.length) {
-            const a = m[i].match(/.([^=]+)=(.*)/);
-            params[unescapeURL(a[1])] = unescapeURL(a[2]);
-            i += 1;
-        }
+    const parsedParams = {};
+    const matches = window.location.href.match(/[\\?&]([^=]+)=([^&#]*)/g);
+    if (matches) {
+        matches.forEach(m => {
+            const a = m.match(/.([^=]+)=(.*)/);
+            parsedParams[unescapeURL(a[1])] = unescapeURL(a[2]);
+        });
     }
-    if (!params.workerId && !params.assignmentId && !params.hitId) {
-        // eslint-disable-next-line no-undef
-        if (DEV_MODE) {
-            console.log(
-                'App running in dev mode so HIT submission will not work!\nTo test in the sandbox make sure to deploy the app.'
-            );
-            params.workerId = 'test-worker';
-            params.assignmentId = 'test-assignment';
-            params.hitId = 'test-hit';
-            params.turkSubmitTo = 'test-submit';
-        }
-    }
-    return params;
+    return parsedParams;
 };
-
-// Use those functions to get the window URL params and make them available throughout the app
-export const params = getURLParams();
