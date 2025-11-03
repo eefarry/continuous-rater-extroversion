@@ -1,48 +1,50 @@
+<!-- FULL APP.SVELTE WITH LOOPING TASK FOR PROLIFIC -->
+
 <script>
     import { db, auth, serverTime, params, ratingTypes, ratingDefs, dev,
             experiment, userGroup, labName, email} from './utils.js';
     
     import { onMount } from 'svelte';
-    import Intro from './pages/Intro.svelte';
-    import Botcheck from './pages/Botcheck.svelte';
-    import Consent from './pages/Consent.svelte';
-    import Instructions1 from './pages/Instructions1.svelte';
-    import Instructions2 from './pages/Instructions2.svelte';
+	import Intro from './pages/Intro.svelte';
+	import Botcheck from './pages/Botcheck.svelte';
+	import Consent from './pages/Consent.svelte';
+	import Instructions1 from './pages/Instructions1.svelte';
+	import Instructions2 from './pages/Instructions2.svelte';
     import Instructions3 from './pages/Instructions3.svelte';
     import Demo from './pages/Demo.svelte';
-    import Task from './pages/Task.svelte';
-    import Debrief from './pages/Debrief.svelte';
+	import Task from './pages/Task.svelte';
+	import Debrief from './pages/Debrief.svelte';
     import Complete from './pages/Complete.svelte';
     import Loading from './components/Loading.svelte';
     import Header from './components/Header.svelte';
-    import ProlificPreview from './pages/ProlificPreview.svelte';
-    import IdInput from './pages/IdInput.svelte';
+	import ProlificPreview from './pages/ProlificPreview.svelte';
 
-    // path details
-    const ratingsPath = `${experiment}/ratings`;
-    const ratingsDoc = db.doc(ratingsPath);
-    const subjectGroupPath = `${experiment}/subjects/${userGroup}`;
+	// path details
+	const ratingsPath = `${experiment}/ratings`;
+	const ratingsDoc = db.doc(ratingsPath);
+	const subjectGroupPath = `${experiment}/subjects/${userGroup}`;
     const subjectGroupCollection = db.collection(subjectGroupPath);
-    const stimuliPath = `${experiment}/stimuli`;
-    const stimuliDoc = db.doc(stimuliPath);
+	const stimuliPath = `${experiment}/stimuli`;
+	const stimuliDoc = db.doc(stimuliPath);
 
-    // declare and set other necessary variables
-    let currVid;
-    let currVidSrc;
-    let currRating;
+	// declare and set other necessary variables
+	let currVid;
+	let currVidSrc;
+	let currRating;
     let currDef;
-    let subjectPath;
-    let ratingDocPathway;
-    let currentState;
+	let subjectPath;
+	let ratingDocPathway;
+	let currentState;
     let consentStatus;
     let alreadyWatched = [];
     let moviesRemaining = [];
     let numOptions;
     let time = 0;
+    let initExperiment = false;
     
-    console.log(dev);
+	console.log(dev);
 
-    const resetTestWorker = async () => {
+	const resetTestWorker = async () => {
         if (params.workerId === 'test-worker') {
             currentState = 'consent';
             let subjectRef = subjectGroupCollection.doc(params.workerId);
@@ -69,156 +71,132 @@
         }
     };
 
-    // *****************************************************************
-    // CORE INITIALIZATION FUNCTION (Guarantees Authentication and Order)
-    // *****************************************************************
-
-    const initializeExperiment = async (participantId) => {
-        try {
-            // Ensure params.participantId is set for the rest of the app to use
-            params.participantId = participantId;
-            
-            // 1. Firebase Authentication: Sign in or create the user
-            const email = `${participantId}@experiment.com`;
-            let userCredential;
-            
-            try {
-                // Attempt Sign In
-                userCredential = await auth.signInWithEmailAndPassword(email, participantId);
-                console.log('User found...signing in with credentials');
-            } catch (error) {
-                if (error.code === 'auth/user-not-found') {
-                    // If user not found, create the user
-                    console.log('No user found...creating new credentials');
-                    userCredential = await auth.createUserWithEmailAndPassword(email, participantId);
-                } else {
-                    console.error("Authentication Error:", error);
-                    currentState = undefined; 
-                    return; 
-                }
-            }
-            
-            let user = userCredential.user;
-
-            if (!user) {
-                 console.error("Critical: User object is null after authentication.");
-                 currentState = undefined;
-                 return;
-            }
-
-            // 2. User Document Setup (Guaranteed to run AFTER auth)
-            let subjectRef = subjectGroupCollection.doc(participantId);
-            subjectPath = `${subjectGroupPath}/${participantId}`;
-            let doc = await subjectRef.get();
-
-            if (!doc.exists) {
-                // Initial document creation
-                await subjectRef.set({
-                    participantId: participantId,
-                    userId: user.uid,
-                    startTime: serverTime,
-                    consentStatus: 'incomplete'
-                });
-                console.log('Created new subject document.');
-            } else {
-                // Returning user
-                await subjectRef.update({ mostRecentTime: serverTime });
-                console.log('Loading previous subject document.');
-            }
-
-            // 3. Stimuli and Rating Setup (Runs AFTER user doc exists)
-            let stimuliTable = await stimuliDoc.get();
-            for (var field in stimuliTable.data()) {
-                moviesRemaining.push(field);
-            }
-
-            let currPath = `${ratingsPath}/${participantId}`;
-            let ratingList = await db.collection(currPath).get();
-            ratingList.forEach(function(doc) {
-                moviesRemaining = removeItemOnce(moviesRemaining, doc.id.split("-")[0]);
-            });
-            numOptions = moviesRemaining.length;
-
-            if (numOptions > 0) {
-                // choose random starting video and rating type
-                let movieIndex = Math.floor(Math.random()*moviesRemaining.length);
-                let ratingIndex = Math.floor(Math.random()*ratingTypes.length);
-                currVid = moviesRemaining[movieIndex];
-                currRating = ratingTypes[ratingIndex];
-                currDef = ratingDefs[ratingIndex];
-                let vidPlusRating = `${currVid}-${currRating}`;
-                ratingDocPathway = `${ratingsPath}/${participantId}/${vidPlusRating}`;
-                currVidSrc = stimuliTable.data()[currVid];
-                
-                // 4. FINAL STEP: Transition state ONLY after setup is done
-                updateState('consent');
-            } else {
-                console.log("No options left! Skipping consent.");
-                updateState('complete');
-            }
-
-        } catch (error) {
-            console.error("Experiment Initialization Failed:", error);
-            currentState = undefined; 
-        }
-    };
-
-
     // *****************************
-    // INITIAL ROUTING AND MOUNT
+	// main function
     // *****************************
 
-    currentState = undefined;
+    // For Prolific, we assume participants arrive with 'participantId' via URL params
+	if (params.participantId) {
+        initExperiment = true;
+    } else {
+        currentState = 'prolific-preview';
+    }
 
     onMount(async () => {
-        if (params.participantId && typeof params.participantId === 'string' && params.participantId.trim() !== '') {
-            // Prolific user (ID in URL): Start initialization immediately
-            await initializeExperiment(params.participantId);
-        } else {
-            // Manual user or missing Prolific ID: Prompt for ID
-            currentState = 'id-input'; 
+        if (initExperiment) {
+            try {
+                auth.onAuthStateChanged(async (user) => {
+                    if (!user) {
+                        try {
+                            await auth.signInWithEmailAndPassword(
+                                `${params.participantId}@experiment.com`,
+                                params.participantId
+                            );
+                            console.log('user found...signing in with credentials');
+                        } catch (error) {
+                            if (error.code === 'auth/user-not-found') {
+                                console.log('no user found...creating new credentials');
+                                await auth.createUserWithEmailAndPassword(
+                                    `${params.participantId}@experiment.com`,
+                                    params.participantId
+                                );
+                            } else {
+                                console.error(error);
+                            }
+                        }
+                    } else {
+                        console.log('user authenticated...');
+                        let currUser = auth.currentUser;
+                        try {
+                            let subjectRef = subjectGroupCollection.doc(params.participantId);
+                            subjectPath = `${subjectGroupPath}/${params.participantId}`;
+                            subjectRef.get().then(function(doc) {
+                                if (doc.exists) {
+                                    console.log('previous document found...loading state...');
+                                    subjectRef.update({ mostRecentTime: serverTime });
+                                } else {
+                                    subjectGroupCollection.doc(params.participantId).set({name: 'unknown'});
+                                    console.log('no previous documents found...creating new...');
+                                    subjectPath = `${subjectGroupPath}/${params.participantId}`;
+                                    subjectRef.set({
+                                        participantId: params.participantId,
+                                        userId: currUser.uid,
+                                        startTime: serverTime,
+                                        consentStatus: 'incomplete'
+                                    });
+                                }
+
+                                // Grab stimuli doc and prepare movie list
+                                stimuliDoc.get().then(function(stimuliTable) {
+                                    for (var field in stimuliTable.data()) {
+                                        moviesRemaining.push(field);
+                                    }
+
+                                    let currPath = `${ratingsPath}/${params.participantId}`;
+                                    db.collection(currPath).get().then(function(ratingList) {
+                                        ratingList.forEach(function(doc) {
+                                            moviesRemaining = removeItemOnce(moviesRemaining, doc.id.split("-")[0]);
+                                        });
+                                        numOptions = moviesRemaining.length;
+                                        console.log('moviesRemaining: ', moviesRemaining);
+
+                                        if (numOptions > 0) {
+                                            // choose random starting video and rating type
+                                            let movieIndex = Math.floor(Math.random()*moviesRemaining.length);
+                                            let ratingIndex = Math.floor(Math.random()*ratingTypes.length);
+                                            currVid = moviesRemaining[movieIndex];
+                                            currRating = ratingTypes[ratingIndex];
+                                            currDef = ratingDefs[ratingIndex];
+                                            let vidPlusRating = `${currVid}-${currRating}`;
+                                            ratingDocPathway = `${ratingsPath}/${params.participantId}/${vidPlusRating}`;
+                                            currVidSrc = stimuliTable.data()[currVid];
+                                            updateState('consent');
+                                        } else {
+                                            console.log("no options left!");
+                                            updateState('complete');
+                                        }
+                                    });
+                                });
+
+                            });
+                        } catch (error) {
+                            console.error(error);
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error(error);
+            }
         }
     });
 
-
-    // *****************************
-    // handler functions
-    // *****************************
-
-    // 💡 FIX APPLIED HERE: The handler must accept the event object and extract the ID from 'detail'.
-    const handleIdSubmit = async (event) => {
-        const id = event.detail; // Extract ID from the event payload
-        
-        if (!id || typeof id !== 'string' || id.trim() === '') {
-            console.error("Attempted to submit an invalid or empty Participant ID.");
-            return; 
-        }
-
-        currentState = undefined; // Go to loading while we initialize
-        await initializeExperiment(id.trim()); 
-    }
+	// *****************************
+	// handler functions
+	// *****************************
 
     const updateState = async (newState) => {
         currentState = newState;
         try {
+            // 🟢 FIX 1: Ensure document is created if missing
             await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set({ currentState }, { merge: true });
             console.log('updated user state');
         } catch (error) {
-            console.error("Error updating state in DB:", error);
+            console.error(error);
         }
     };
 
     const failedBot = async () => {
         try {
+            // 🟢 FIX 2: Ensure document is created if missing
             await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set({ botStatus: "bot" }, { merge: true });
             console.log('user identified as bot');
         } catch (error) {
             console.error(error);
         }
     };
-
     const failedConsent = async () => {
         try {
+            // 🟢 FIX 3: Ensure document is created if missing
             await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set({ consentStatus: 'failed' }, { merge: true });
             console.log('user rejected consent');
         } catch (error) {
@@ -228,6 +206,7 @@
 
     const agreedConsent = async () => {
         try {
+            // 🟢 FIX 4 (CRUCIAL): Ensure document is created if missing before proceeding
             await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).set({ consentStatus: 'signed' }, { merge: true });
             updateState('botcheck-instruct');
             console.log('user accepted consent');
@@ -236,16 +215,14 @@
         }
     };
 
-    function removeItemOnce(arr, value) {
-        var index = arr.indexOf(value);
-        if (index > -1) {
-            arr.splice(index, 1);
-        }
-        return arr;
-    };
+	function removeItemOnce(arr, value) {
+  		var index = arr.indexOf(value);
+  		if (index > -1) {
+    		arr.splice(index, 1);
+  		}
+  		return arr;
+	};
 </script>
-
----
 
 <style>
     .content { position: relative; }
@@ -257,45 +234,43 @@
         <Header on:resetTestWorker={resetTestWorker}></Header>
     </div>
 
-    {#if !currentState}
+	{#if !currentState}
         <Loading>Loading...</Loading>
-    {:else if currentState === 'id-input'}
-        <IdInput on:finished={handleIdSubmit} />
     {:else if currentState === 'prolific-preview'}
         <ProlificPreview />
-    {:else if currentState === 'intro'}
-        <Intro on:finished={() => updateState('consent')}></Intro>
-    {:else if currentState === 'consent'}
-        <Consent on:finished={() => agreedConsent()} on:returned={() => failedConsent()}></Consent>
-    {:else if currentState === 'botcheck-instruct'}
-        <Botcheck on:finished={() => updateState('instructions1')} on:failed={() => failedBot()}></Botcheck>
-    {:else if currentState === 'botcheck-task'}
-        <Botcheck on:finished={() => updateState('task')} on:failed={() => failedBot()}></Botcheck>
-    {:else if currentState === 'instructions1'}
-        <Instructions1 ratingType={currRating} defType={currDef} numOptions={numOptions} on:finished={() => updateState('demo')} />
-    {:else if currentState === 'demo'}
-        <Demo time={time} ratingType={currRating} on:back={() => updateState('instructions1')} on:finished={() => updateState('instructions2')} />
-    {:else if currentState === 'instructions2'}
-        <Instructions2 on:back={() => updateState('demo')} on:finished={() => updateState('instructions3')} />
+	{:else if currentState === 'intro'}
+		<Intro on:finished={() => updateState('consent')}></Intro>
+	{:else if currentState === 'consent'}
+		<Consent on:finished={() => agreedConsent()} on:returned={() => failedConsent()}></Consent>
+	{:else if currentState === 'botcheck-instruct'}
+		<Botcheck on:finished={() => updateState('instructions1')} on:failed={() => failedBot()}></Botcheck>
+	{:else if currentState === 'botcheck-task'}
+		<Botcheck on:finished={() => updateState('task')} on:failed={() => failedBot()}></Botcheck>
+	{:else if currentState === 'instructions1'}
+		<Instructions1 ratingType={currRating} defType={currDef} numOptions={numOptions} on:finished={() => updateState('demo')} />
+	{:else if currentState === 'demo'}
+		<Demo time={time} ratingType={currRating} on:back={() => updateState('instructions1')} on:finished={() => updateState('instructions2')} />
+	{:else if currentState === 'instructions2'}
+		<Instructions2 on:back={() => updateState('demo')} on:finished={() => updateState('instructions3')} />
     {:else if currentState === 'instructions3'}
     <Instructions3 ratingType={currRating} defType={currDef} on:back={() => updateState('instructions2')} on:finished={() => updateState('task')} />
-    {:else if currentState === 'task'}
-        <Task 
-            stimuliPath={`${experiment}/stimuli`}
-            pathway={`${experiment}/ratings/${params.participantId}`}
-            ratingType={currRating}
-            ratingDef={currDef}
-            time={time}
-            on:finished={() => updateState("debrief")}
-        />
-    {:else if currentState === 'debrief'}
-        <Debrief
-            subPath={subjectPath}
-            email={email}
-            labName={labName}
-            numOptions={numOptions}
-        />
-    {:else if currentState === 'complete'}
-        <Complete />
-    {/if}    
+	{:else if currentState === 'task'}
+		<Task 
+			stimuliPath={`${experiment}/stimuli`}
+			pathway={`${experiment}/ratings/${params.participantId}`}
+			ratingType={currRating}
+			ratingDef={currDef}
+			time={time}
+			on:finished={() => updateState("debrief")}
+		/>
+	{:else if currentState === 'debrief'}
+		<Debrief
+			subPath={subjectPath}
+			email={email}
+			labName={labName}
+			numOptions={numOptions}
+		/>
+	{:else if currentState === 'complete'}
+		<Complete />
+	{/if}  	 
 </div>
