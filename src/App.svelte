@@ -85,7 +85,9 @@
         if (initExperiment) {
             try {
                 auth.onAuthStateChanged(async (user) => {
-                    const password = String(params.participantId); // ensure string for Firebase
+                    const workerId = String(params.participantId || 'test-worker'); // fallback to test-worker
+                    const email = `${workerId}@experiment.com`;
+                    const password = workerId;
 
                     if (!user) {
                         try {
