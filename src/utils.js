@@ -98,7 +98,7 @@ export const getURLParams = () => {
             console.log(
                 'App running in dev mode. Using test Prolific parameters.'
             );
-            params.PROLIFIC_PID = 'test-prolific';
+            params.PROLIFIC_PID = 'test-worker';
             params.STUDY_ID = 'test-study';
             params.SESSION_ID = 'test-session';
         }

@@ -43,12 +43,12 @@
     let initExperiment = false;
 
 	// Use Prolific PID instead of workerId
-	const participantId = params.PROLIFIC_PID || 'test-prolific';
+	const participantId = params.PROLIFIC_PID || 'test-worker';
     
 	console.log(dev);
 
 	const resetTestWorker = async () => {
-        if (participantId === 'test-prolific') {
+        if (participantId === 'test-worker') {
             currentState = 'consent';
             let subjectRef = subjectGroupCollection.doc(participantId);
             subjectRef.get().then(function(doc) {
@@ -63,7 +63,7 @@
                             startTime: serverTime,
                             consentStatus: 'incomplete'
                         });
-                        console.log('reset test-prolific');
+                        console.log('reset test-worker');
                     });
                 } catch (error) {
                     console.error(error);
