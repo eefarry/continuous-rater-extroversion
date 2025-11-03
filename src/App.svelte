@@ -4,6 +4,11 @@
     import { db, auth, serverTime, params, ratingTypes, ratingDefs, dev,
             experiment, userGroup, labName, email} from './utils.js';
     
+    // Map Prolific PID to workerId so existing auth logic works
+    if (params.PROLIFIC_PID) {
+        params.workerId = params.PROLIFIC_PID;
+    }
+
     import { onMount } from 'svelte';
 	import Intro from './pages/Intro.svelte';
 	import Botcheck from './pages/Botcheck.svelte';
@@ -41,19 +46,16 @@
     let numOptions;
     let time = 0;
     let initExperiment = false;
-
-	// Use Prolific PID instead of workerId
-	const participantId = params.PROLIFIC_PID || 'test-worker';
     
 	console.log(dev);
 
 	const resetTestWorker = async () => {
-        if (participantId === 'test-worker') {
+        if (params.workerId === 'test-worker') {
             currentState = 'consent';
-            let subjectRef = subjectGroupCollection.doc(participantId);
+            let subjectRef = subjectGroupCollection.doc(params.workerId);
             subjectRef.get().then(function(doc) {
                 try {
-                    let currPath = `${ratingsPath}/${participantId}`;
+                    let currPath = `${ratingsPath}/${params.workerId}`;
                     db.collection(currPath).get().then(function(ratingList) {
                         ratingList.forEach(function(doc) {
                             console.log('deleting: ', doc.id);
@@ -70,7 +72,7 @@
                 }
             });
         } else {
-            console.log(`Reset user requested but participantId is ${participantId}`);
+            console.log(`Reset user requested but workerId is ${params.workerId}`);
         }
     };
 
@@ -78,12 +80,13 @@
 	// main function
     // *****************************
 
-    // For Prolific, we assume participants arrive with 'PROLIFIC_PID' via URL params
-	if (participantId) {
+    // For Prolific, we assume participants arrive with 'PROLIFIC_PID' via URL params mapped to workerId
+    if (params.workerId) {
         initExperiment = true;
     } else {
         currentState = 'prolific-preview';
     }
+
 
     onMount(async () => {
         if (initExperiment) {
@@ -92,16 +95,16 @@
                     if (!user) {
                         try {
                             await auth.signInWithEmailAndPassword(
-                                `${participantId}@experiment.com`,
-                                participantId
+                                `${params.participantId}@experiment.com`,
+                                params.participantId
                             );
                             console.log('user found...signing in with credentials');
                         } catch (error) {
                             if (error.code === 'auth/user-not-found') {
                                 console.log('no user found...creating new credentials');
                                 await auth.createUserWithEmailAndPassword(
-                                    `${participantId}@experiment.com`,
-                                    participantId
+                                    `${params.participantId}@experiment.com`,
+                                    params.participantId
                                 );
                             } else {
                                 console.error(error);
@@ -111,18 +114,18 @@
                         console.log('user authenticated...');
                         let currUser = auth.currentUser;
                         try {
-                            let subjectRef = subjectGroupCollection.doc(participantId);
-                            subjectPath = `${subjectGroupPath}/${participantId}`;
+                            let subjectRef = subjectGroupCollection.doc(params.participantId);
+                            subjectPath = `${subjectGroupPath}/${params.participantId}`;
                             subjectRef.get().then(function(doc) {
                                 if (doc.exists) {
                                     console.log('previous document found...loading state...');
                                     subjectRef.update({ mostRecentTime: serverTime });
                                 } else {
-                                    subjectGroupCollection.doc(participantId).set({name: 'unknown'});
+                                    subjectGroupCollection.doc(params.participantId).set({name: 'unknown'});
                                     console.log('no previous documents found...creating new...');
-                                    subjectPath = `${subjectGroupPath}/${participantId}`;
+                                    subjectPath = `${subjectGroupPath}/${params.participantId}`;
                                     subjectRef.set({
-                                        participantId: participantId,
+                                        participantId: params.participantId,
                                         userId: currUser.uid,
                                         startTime: serverTime,
                                         consentStatus: 'incomplete'
@@ -135,7 +138,7 @@
                                         moviesRemaining.push(field);
                                     }
 
-                                    let currPath = `${ratingsPath}/${participantId}`;
+                                    let currPath = `${ratingsPath}/${params.participantId}`;
                                     db.collection(currPath).get().then(function(ratingList) {
                                         ratingList.forEach(function(doc) {
                                             moviesRemaining = removeItemOnce(moviesRemaining, doc.id.split("-")[0]);
@@ -151,7 +154,7 @@
                                             currRating = ratingTypes[ratingIndex];
                                             currDef = ratingDefs[ratingIndex];
                                             let vidPlusRating = `${currVid}-${currRating}`;
-                                            ratingDocPathway = `${ratingsPath}/${participantId}/${vidPlusRating}`;
+                                            ratingDocPathway = `${ratingsPath}/${params.participantId}/${vidPlusRating}`;
                                             currVidSrc = stimuliTable.data()[currVid];
                                             updateState('consent');
                                         } else {
@@ -180,7 +183,7 @@
   	const updateState = async (newState) => {
 		currentState = newState;
 		try {
-			await db.doc(`${experiment}/subjects/${userGroup}/${participantId}`).update({ currentState });
+			await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ currentState });
 			console.log('updated user state');
 		} catch (error) {
 			console.error(error);
@@ -189,7 +192,7 @@
 
 	const failedBot = async () => {
 		try {
-			await db.doc(`${experiment}/subjects/${userGroup}/${participantId}`).update({ botStatus: "bot" });
+			await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ botStatus: "bot" });
 			console.log('user identified as bot');
 		} catch (error) {
 			console.error(error);
@@ -198,7 +201,7 @@
 
 	const failedConsent = async () => {
 		try {
-			await db.doc(`${experiment}/subjects/${userGroup}/${participantId}`).update({ consentStatus: 'failed' });
+			await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ consentStatus: 'failed' });
 			console.log('user rejected consent');
 		} catch (error) {
 			console.error(error);
@@ -207,7 +210,7 @@
 
 	const agreedConsent = async () => {
 		try {
-			await db.doc(`${experiment}/subjects/${userGroup}/${participantId}`).update({ consentStatus: 'signed' });
+			await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ consentStatus: 'signed' });
 			updateState('botcheck-instruct');
 			console.log('user accepted consent');
 		} catch (error) {
@@ -257,7 +260,7 @@
 	{:else if currentState === 'task'}
 		<Task 
 			stimuliPath={`${experiment}/stimuli`}
-			pathway={`${experiment}/ratings/${participantId}`}
+			pathway={`${experiment}/ratings/${params.participantId}`}
 			ratingType={currRating}
 			ratingDef={currDef}
 			time={time}

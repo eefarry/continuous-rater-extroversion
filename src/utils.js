@@ -1,3 +1,4 @@
+
 // ************************************************
 // THIS PAGE REQUIRES EXPERIMENTER INPUT
 // ************************************************
@@ -44,6 +45,7 @@ export const ratingDefs = [
 <u>Low Extroversion:</u> reserved, quiet, passive, prefers solitude or small groups, less expressive.`
 ];
 
+
 // this configures path to proper firebase
 // COPY AND PASTE YOUR FIREBASE CONFIG HERE
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -77,10 +79,11 @@ export const db = firebase.firestore();
 export const auth = firebase.auth();
 export const serverTime = firebase.firestore.Timestamp.now();
 
-// Functions to parse the URL to get Prolific IDs
+// Functions to parse the URL to get workerID, hitID, and assignmentID
 const unescapeURL = (s) => decodeURIComponent(s.replace(/\+/g, '%20'));
 export const getURLParams = () => {
     const params = {};
+    let url = window.location.href;
     let m = window.location.href.match(/[\\?&]([^=]+)=([^&#]*)/g);
     
     if (m) {
@@ -91,16 +94,16 @@ export const getURLParams = () => {
             i += 1;
         }
     }
-    // if URL doesn't contain Prolific info, provide test defaults for preview/dev mode
-    if (!params.PROLIFIC_PID && !params.STUDY_ID && !params.SESSION_ID) {
+    if (!params.workerId && !params.assignmentId && !params.hitId) {
         // eslint-disable-next-line no-undef
         if (DEV_MODE) {
             console.log(
-                'App running in dev mode. Using test Prolific parameters.'
+                'App running in dev mode so HIT submission will not work!\nTo test in the sandbox make sure to deploy the app.'
             );
-            params.PROLIFIC_PID = 'test-worker';
-            params.STUDY_ID = 'test-study';
-            params.SESSION_ID = 'test-session';
+            params.workerId = 'test-worker';
+            params.assignmentId = 'test-assignment';
+            params.hitId = 'test-hit';
+            params.turkSubmitTo = 'test-submit';
         }
     }
     return params;
