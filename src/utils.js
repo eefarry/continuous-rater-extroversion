@@ -1,14 +1,3 @@
-// utils.js
-
-// ************************************************
-// PROLIFIC URL PARAMETERS (with test defaults)
-// ************************************************
-export const params = {
-    PROLIFIC_PID: new URLSearchParams(window.location.search).get('PROLIFIC_PID') || 'test-prolific',
-    STUDY_ID: new URLSearchParams(window.location.search).get('STUDY_ID') || 'test-study',
-    SESSION_ID: new URLSearchParams(window.location.search).get('SESSION_ID') || 'test-session'
-};
-
 // ************************************************
 // THIS PAGE REQUIRES EXPERIMENTER INPUT
 // ************************************************
@@ -21,6 +10,9 @@ import "firebase/performance";
 import "firebase/analytics";
 import { writable } from 'svelte/store';
 
+// --- ADD THIS LINE AT THE TOP ---
+const DEV_MODE = true; // enables test Prolific preview
+
 // ************************************************
 // ************************************************
 // ************************************************
@@ -32,17 +24,18 @@ import { writable } from 'svelte/store';
 // ************************************************
 
 // lab variables
-export const studyLocation = 'Columbia University';
-export const labName = 'Social Cognitive and Neural Sciences lab';
-export const email = 'columbia.freemanlab@gmail.com';
-export const studyAim = 'understanding how people form impressions of others';
-export const studyTasks = 'viewing videos of people telling a story about their life and rating these people continuously on a personality trait throughout the videos';
-export const experiment = 'narrative-ratings';
+export const studyLocation = 'Columbia University'; // location of lab running mturk study
+export const labName = 'Social Cognitive and Neural Sciences lab'; // name of lab running HIT experiment 
+export const email = 'columbia.freemanlab@gmail.com'; // lab email for mturk
+export const studyAim = 'understanding how people form impressions of others'; // aim of mturk study 
+export const studyTasks = 'viewing videos of people telling a story about their life and rating these people continously on a personality trait throughout the videos'; // brief summary of HIT task for consent form
+export const experiment = 'narrative-ratings'; // name of experiment (should match collection name in firebase)
 
-// participant variables
-export const userGroup = 'Prolific Group';
-export const estHITTime = '30';
-export const totalHITTime = estHITTime * 2;
+// HIT variables
+export const HITPay = '5.00'; // pay for HIT completion (format as X.XX with no dollar sign)
+export const userGroup = 'Prolific Group'; // name of collection of participants for current HIT
+export const estHITTime = '30'; // estimated time to complete HIT (in minutes)
+export const totalHITTime = estHITTime * 2; // total time provided for HIT (in minutes)
 
 // stimuli variables
 export const ratingTypes = ['Extroverted'] // 'Conscientious', 'Extroverted', 'Agreeable', 'Neurotic']; // array of rating types   
@@ -54,7 +47,9 @@ export const ratingDefs = [
 <u>Low Extroversion:</u> reserved, quiet, passive, prefers solitude or small groups, less expressive.`
 ];
 
-// Firebase config
+// this configures path to proper firebase
+// COPY AND PASTE YOUR FIREBASE CONFIG HERE
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyDRCgMCZ6-86XocHOPLHW6wBRjIOyoORaM",
   authDomain: "narrative-ratings-a2b79.firebaseapp.com",
@@ -75,25 +70,46 @@ const firebaseConfig = {
 // ************************************************
 // ************************************************
 
-// dev store
+// dev is referenced as a store elsewhere in the code, so cannot be a simple Boolean
+// eslint-disable-next-line no-undef
 export const dev = DEV_MODE ? writable(true) : writable(false);
 
-// Firebase exports
+// firebase info (export for use elsewhere in app)
 firebase.initializeApp(firebaseConfig);
 export const db = firebase.firestore();
 export const auth = firebase.auth();
 export const serverTime = firebase.firestore.Timestamp.now();
 
-// Helper to parse any URL params (fallback)
+// Functions to parse the URL to get Prolific IDs
 const unescapeURL = (s) => decodeURIComponent(s.replace(/\+/g, '%20'));
 export const getURLParams = () => {
-    const parsedParams = {};
-    const matches = window.location.href.match(/[\\?&]([^=]+)=([^&#]*)/g);
-    if (matches) {
-        matches.forEach(m => {
-            const a = m.match(/.([^=]+)=(.*)/);
-            parsedParams[unescapeURL(a[1])] = unescapeURL(a[2]);
-        });
+    const params = {};
+    let m = window.location.href.match(/[\\?&]([^=]+)=([^&#]*)/g);
+    
+    if (m) {
+        let i = 0;
+        while (i < m.length) {
+            const a = m[i].match(/.([^=]+)=(.*)/);
+            params[unescapeURL(a[1])] = unescapeURL(a[2]);
+            i += 1;
+        }
     }
-    return parsedParams;
+    // if URL doesn't contain Prolific info, provide test defaults for preview/dev mode
+    if (!params.PROLIFIC_PID && !params.STUDY_ID && !params.SESSION_ID) {
+        // eslint-disable-next-line no-undef
+        if (DEV_MODE) {
+            console.log(
+                'App running in dev mode. Using test Prolific parameters.'
+            );
+            params.PROLIFIC_PID = 'test-prolific';
+            params.STUDY_ID = 'test-study';
+            params.SESSION_ID = 'test-session';
+        }
+    }
+    return params;
 };
+
+// Use those functions to get the window URL params and make them available throughout the app
+export const params = getURLParams();
+
+
