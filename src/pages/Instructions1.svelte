@@ -9,7 +9,7 @@
   // Add/remove items here to create more instructions pages
   const ratingInstruct = `
   In this task you will watch short videos of a person talking about themselves and their lives. 
-  For each clip, you will evaluate the individual in the audio clip (that is, the storyteller) on a characteristic continously throughout the video.<br><br>
+  For each clip, you will evaluate the individual in the clip (that is, the storyteller) on a characteristic continously throughout the video.<br><br>
 
   That is, how <strong>${ratingType}</strong> each target person is. 
   The trait <strong>${ratingType}</strong> <u>${defType}</u>.<br><br>
