@@ -7,7 +7,7 @@
   // Add/remove items here to create more instructions pages
   
   const instructions = [
-    'If these instructions make sense and you would like to begin, click the button below to proceed to the task. Otherwise please return this HIT.'
+    'In the experiment some videos may take a little bit of time to load, <strong>please do NOT refresh the page in case of slow loading</strong>. Please <strong>be patient and wait</strong> for each video to load. <br><br> Some of the targets might speak softly, please <strong>adjust your speaker volume as needed</strong>. <br><br> If these instructions make sense and you would like to begin, click the button below to start the experiment. Otherwise, please go back and read the instructions again.'
   ];
 
   const dispatch = createEventDispatcher();

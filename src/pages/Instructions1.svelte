@@ -3,10 +3,21 @@
   // This is the Instructions page. It loops over the instructions array as a user reads and when click to the last page it notifies the main App.svelte component by dispatching a 'finished' event. When the last page of the instructions are reached the forward button turns into a "Take Quiz" button, but currently there is no quiz and it goes straight to the experiment
   import { createEventDispatcher } from 'svelte';
   export let ratingType;
+  export let defType;
   export let numOptions;
 
   // Add/remove items here to create more instructions pages
-  const ratingInstruct = 'In this task, you will watch a short video, provide ratings related to that video continuously as you watch, and answer a series of follow-up questions. <br><br> Specifically, you will rate how <strong>' + ratingType + '</strong> a video makes you feel by using your keyboard to control a rating box (which is demoed on the next page) throughout the video. <br><br> You may redo this HIT up to ' + numOptions + ' more times (you are provided with a different video each time). '
+  const ratingInstruct = `
+  In this task you will watch short videos of a person talking about themselves and their lives. 
+  For each clip, you will evaluate the individual in the audio clip (that is, the storyteller) on a characteristic continously throughout the video.<br><br>
+
+  That is, how <strong>${ratingType}</strong> each target person is. 
+  The trait <strong>${ratingType}</strong> <u>${defType}</u>.<br><br>
+
+  To enter your rating continuously, you will use the <strong>UP</strong> and <strong>DOWN</strong> arrow keys on your computer keyboard to adjust your rating throughout the video. 
+  In the next page, you will practice using the UP and DOWN arrow keys continuously.
+  `;
+
   
   const instructions = [
     ratingInstruct

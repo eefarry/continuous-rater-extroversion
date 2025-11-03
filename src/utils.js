@@ -22,33 +22,47 @@ import { writable } from 'svelte/store';
 // ************************************************
 
 // lab variables
-export const studyLocation = ''; // location of lab running mturk study
-export const labName = ''; // name of lab running HIT experiment 
-export const email = ''; // lab email for mturk
-export const studyAim = ''; // aim of mturk study 
-export const studyTasks = ''; // brief summary of HIT task for consent form
-export const experiment = ''; // name of experiment (should match collection name in firebase)
+export const studyLocation = 'Columbia University'; // location of lab running mturk study
+export const labName = 'Social Cognitive and Neural Sciences lab'; // name of lab running HIT experiment 
+export const email = 'columbia.freemanlab@gmail.com'; // lab email for mturk
+export const studyAim = 'understanding how people form impressions of others'; // aim of mturk study 
+export const studyTasks = 'viewing videos of people telling a story about their life and rating these people continously on a personality trait throughout the videos'; // brief summary of HIT task for consent form
+export const experiment = 'narrative-ratings'; // name of experiment (should match collection name in firebase)
 
 // HIT variables
-export const HITPay = ''; // pay for HIT completion (format as X.XX with no dollar sign)
-export const userGroup = ''; // name of collection of participants for current HIT
-export const estHITTime = ''; // estimated time to complete HIT (in minutes)
+export const HITPay = '5.00'; // pay for HIT completion (format as X.XX with no dollar sign)
+export const userGroup = 'Prolific Group'; // name of collection of participants for current HIT
+export const estHITTime = '30'; // estimated time to complete HIT (in minutes)
 export const totalHITTime = estHITTime * 2; // total time provided for HIT (in minutes)
 
 // stimuli variables      
-export const ratingTypes = ['', '', '']; // array of rating types   
+export const ratingTypes = ['Affectionate', 'Gloomy', 'Peaceful', 'Angry', 'Bewildered', 'Judging', 'Contemplating','Attentive', 'Open-minded' , 'Conscientious', 'Extroverted', 'Agreeable', 'Neurotic']; // array of rating types   
+export const ratingDefs = [
+    'Affectionate def', 
+    'Gloomy def', 
+    'Peaceful def', 
+    'Angry def', 
+    'Bewildered def', 
+    'Judging def ', 
+    'Contemplating def',
+    'Attentive def', 
+    'Open-minded def' , 
+    'Conscientious def', 
+    'Extroverted def', 
+    'Agreeable def', 
+    'Neurotic def']; // array of rating types definitions  
 
 // this configures path to proper firebase
 // COPY AND PASTE YOUR FIREBASE CONFIG HERE
-let firebaseConfig = {
-    apiKey: "",
-    authDomain: "",
-    databaseURL: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: "",
-    measurementId: ""
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDRCgMCZ6-86XocHOPLHW6wBRjIOyoORaM",
+  authDomain: "narrative-ratings-a2b79.firebaseapp.com",
+  projectId: "narrative-ratings-a2b79",
+  storageBucket: "narrative-ratings-a2b79.firebasestorage.app",
+  messagingSenderId: "498681290309",
+  appId: "1:498681290309:web:4e167cb9cc3c0c60a70d2c",
+  measurementId: "G-6Y2W4GZNRQ"
 };
 
 // ************************************************
