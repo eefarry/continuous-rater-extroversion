@@ -4,6 +4,7 @@
     import { db, auth, serverTime, params, ratingTypes, ratingDefs, dev,
             experiment, userGroup, labName, email} from './utils.js';
     
+const workerId = params.workerId || params.PROLIFIC_PID;
 
     import { onMount } from 'svelte';
 	import Intro from './pages/Intro.svelte';
