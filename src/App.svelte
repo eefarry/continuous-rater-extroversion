@@ -4,10 +4,6 @@
     import { db, auth, serverTime, params, ratingTypes, ratingDefs, dev,
             experiment, userGroup, labName, email} from './utils.js';
     
-    // Map Prolific PID to workerId so existing auth logic works
-    if (params.PROLIFIC_PID) {
-        params.workerId = params.PROLIFIC_PID;
-    }
 
     import { onMount } from 'svelte';
 	import Intro from './pages/Intro.svelte';
@@ -92,19 +88,22 @@
         if (initExperiment) {
             try {
                 auth.onAuthStateChanged(async (user) => {
+                    const workerId = params.workerId || 'test-worker'; // ensure we have a valid string
+                    const password = String(workerId); // Firebase requires password to be string
+
                     if (!user) {
                         try {
                             await auth.signInWithEmailAndPassword(
-                                `${params.participantId}@experiment.com`,
-                                params.participantId
+                                `${workerId}@experiment.com`,
+                                password
                             );
                             console.log('user found...signing in with credentials');
                         } catch (error) {
                             if (error.code === 'auth/user-not-found') {
                                 console.log('no user found...creating new credentials');
                                 await auth.createUserWithEmailAndPassword(
-                                    `${params.participantId}@experiment.com`,
-                                    params.participantId
+                                    `${workerId}@experiment.com`,
+                                    password
                                 );
                             } else {
                                 console.error(error);
@@ -114,18 +113,17 @@
                         console.log('user authenticated...');
                         let currUser = auth.currentUser;
                         try {
-                            let subjectRef = subjectGroupCollection.doc(params.participantId);
-                            subjectPath = `${subjectGroupPath}/${params.participantId}`;
+                            let subjectRef = subjectGroupCollection.doc(workerId);
+                            subjectPath = `${subjectGroupPath}/${workerId}`;
                             subjectRef.get().then(function(doc) {
                                 if (doc.exists) {
                                     console.log('previous document found...loading state...');
                                     subjectRef.update({ mostRecentTime: serverTime });
                                 } else {
-                                    subjectGroupCollection.doc(params.participantId).set({name: 'unknown'});
+                                    subjectGroupCollection.doc(workerId).set({name: 'unknown'});
                                     console.log('no previous documents found...creating new...');
-                                    subjectPath = `${subjectGroupPath}/${params.participantId}`;
                                     subjectRef.set({
-                                        participantId: params.participantId,
+                                        participantId: workerId,
                                         userId: currUser.uid,
                                         startTime: serverTime,
                                         consentStatus: 'incomplete'
@@ -138,7 +136,7 @@
                                         moviesRemaining.push(field);
                                     }
 
-                                    let currPath = `${ratingsPath}/${params.participantId}`;
+                                    let currPath = `${ratingsPath}/${workerId}`;
                                     db.collection(currPath).get().then(function(ratingList) {
                                         ratingList.forEach(function(doc) {
                                             moviesRemaining = removeItemOnce(moviesRemaining, doc.id.split("-")[0]);
@@ -154,7 +152,7 @@
                                             currRating = ratingTypes[ratingIndex];
                                             currDef = ratingDefs[ratingIndex];
                                             let vidPlusRating = `${currVid}-${currRating}`;
-                                            ratingDocPathway = `${ratingsPath}/${params.participantId}/${vidPlusRating}`;
+                                            ratingDocPathway = `${ratingsPath}/${workerId}/${vidPlusRating}`;
                                             currVidSrc = stimuliTable.data()[currVid];
                                             updateState('consent');
                                         } else {
@@ -175,6 +173,7 @@
             }
         }
     });
+
 
 	// *****************************
 	// handler functions
