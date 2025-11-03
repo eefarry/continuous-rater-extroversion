@@ -10,9 +10,6 @@ import "firebase/performance";
 import "firebase/analytics";
 import { writable } from 'svelte/store';
 
-// --- ADD THIS LINE AT THE TOP ---
-const DEV_MODE = true; // enables test Prolific preview
-
 // ************************************************
 // ************************************************
 // ************************************************
