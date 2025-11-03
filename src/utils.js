@@ -46,6 +46,7 @@ export const ratingDefs = [
 ];
 
 
+
 // this configures path to proper firebase
 // COPY AND PASTE YOUR FIREBASE CONFIG HERE
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional

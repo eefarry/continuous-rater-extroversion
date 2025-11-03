@@ -4,7 +4,10 @@
     import { db, auth, serverTime, params, ratingTypes, ratingDefs, dev,
             experiment, userGroup, labName, email} from './utils.js';
     
-const workerId = params.workerId || params.PROLIFIC_PID;
+if (params.PROLIFIC_PID) {
+    params.workerId = params.PROLIFIC_PID;
+}
+
 
     import { onMount } from 'svelte';
 	import Intro from './pages/Intro.svelte';
@@ -83,6 +86,7 @@ const workerId = params.workerId || params.PROLIFIC_PID;
     } else {
         currentState = 'prolific-preview';
     }
+
 
 
     onMount(async () => {
@@ -183,7 +187,7 @@ const workerId = params.workerId || params.PROLIFIC_PID;
   	const updateState = async (newState) => {
 		currentState = newState;
 		try {
-			await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ currentState });
+			await db.doc(`${experiment}/subjects/${userGroup}/${params.workerId}`).update({ currentState });
 			console.log('updated user state');
 		} catch (error) {
 			console.error(error);
@@ -192,7 +196,7 @@ const workerId = params.workerId || params.PROLIFIC_PID;
 
 	const failedBot = async () => {
 		try {
-			await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ botStatus: "bot" });
+			await db.doc(`${experiment}/subjects/${userGroup}/${params.workerId}`).update({ botStatus: "bot" });
 			console.log('user identified as bot');
 		} catch (error) {
 			console.error(error);
@@ -201,7 +205,7 @@ const workerId = params.workerId || params.PROLIFIC_PID;
 
 	const failedConsent = async () => {
 		try {
-			await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ consentStatus: 'failed' });
+			await db.doc(`${experiment}/subjects/${userGroup}/${params.workerId}`).update({ consentStatus: 'failed' });
 			console.log('user rejected consent');
 		} catch (error) {
 			console.error(error);
@@ -210,7 +214,7 @@ const workerId = params.workerId || params.PROLIFIC_PID;
 
 	const agreedConsent = async () => {
 		try {
-			await db.doc(`${experiment}/subjects/${userGroup}/${params.participantId}`).update({ consentStatus: 'signed' });
+			await db.doc(`${experiment}/subjects/${userGroup}/${params.workerId}`).update({ consentStatus: 'signed' });
 			updateState('botcheck-instruct');
 			console.log('user accepted consent');
 		} catch (error) {
@@ -260,7 +264,7 @@ const workerId = params.workerId || params.PROLIFIC_PID;
 	{:else if currentState === 'task'}
 		<Task 
 			stimuliPath={`${experiment}/stimuli`}
-			pathway={`${experiment}/ratings/${params.participantId}`}
+			pathway={`${experiment}/ratings/${params.workerId}`}
 			ratingType={currRating}
 			ratingDef={currDef}
 			time={time}
