@@ -35,16 +35,15 @@ export const userGroup = 'Prolific Group'; // name of collection of participants
 export const estHITTime = '30'; // estimated time to complete HIT (in minutes)
 export const totalHITTime = estHITTime * 2; // total time provided for HIT (in minutes)
 
-// stimuli variables
-export const ratingTypes = ['Extroverted'] // 'Conscientious', 'Extroverted', 'Agreeable', 'Neurotic']; // array of rating types   
+// stimuli variables      
+export const ratingTypes = ['Open to Expierence'] // 'Conscientious', 'Extroverted', 'Agreeable', 'Neurotic']; // array of rating types   
 export const ratingDefs = [
-`reflects sociability, assertiveness, and positive emotionality.
+`reflects curiosity, imagination, and sensitivity to art and ideas.
 
-<u>High Extroversion:</u> affectionate, talkative, active, fun-loving, passionate, enthusiastic and expressive in groups.
+<u>High Openness:</u> imaginative, creative, original, prefers variety, curious.
 
-<u>Low Extroversion:</u> reserved, quiet, passive, prefers solitude or small groups, less expressive.`
+<u>Low Openness:</u> down-to-earth, uncreative, conventional, prefers routine, incurious.`
 ];
-
 
 
 // this configures path to proper firebase
@@ -113,7 +112,4 @@ export const getURLParams = () => {
 // Use those functions to get the window URL params and make them available throughout the app
 export const params = getURLParams();
 
-// Map Prolific PID to participantId, fallback to test-worker in dev mode
-if (params.PROLIFIC_PID) params.participantId = params.PROLIFIC_PID;
-if (!params.participantId && DEV_MODE) params.participantId = 'test-worker';
 
