@@ -113,4 +113,7 @@ export const getURLParams = () => {
 // Use those functions to get the window URL params and make them available throughout the app
 export const params = getURLParams();
 
+// Map Prolific PID to participantId, fallback to test-worker in dev mode
+if (params.PROLIFIC_PID) params.participantId = params.PROLIFIC_PID;
+if (!params.participantId && DEV_MODE) params.participantId = 'test-worker';
 
