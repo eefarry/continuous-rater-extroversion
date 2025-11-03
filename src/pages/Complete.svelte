@@ -1,6 +1,6 @@
 <script>
   // Replace this with your actual completion code from Prolific
-  const completionCode = "XXXXXXX"; 
+  const completionCode = "C18VJB3V"; 
   const prolificLink = `https://app.prolific.com/submissions/complete?cc=${completionCode}`;
 </script>
 
